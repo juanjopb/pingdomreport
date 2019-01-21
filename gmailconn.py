@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 #
 # Very basic example of using Python 3 and IMAP to iterate over emails in a
-# gmail folder/label.  This code is released into the public domain.
+# gmail folder/label and extract to csv file.
 #
 # This script is example code from this blog post:
 #   
 #
-# This is an updated version of the original -- modified to work with Python 3.4.
+# This is an updated version of the original -- modified to work with Python 3.6.
+# Usage: python3.6 gmailconn.py
+# 
 #
 import sys
 import imaplib
@@ -14,6 +16,7 @@ import getpass
 import email
 import email.header
 import datetime
+#from datetime import datetime
 import re
 
 
@@ -23,8 +26,11 @@ EMAIL_ACCOUNT = "juanjose.perez@globant.com"
 # after successfully running this script all emails in that folder 
 # will be marked as read.
 EMAIL_FOLDER = "CloudStudio/MB/Pingdom"
+sinceDate = '(SINCE "26-Dec-2018")'
+betweenDates = '(SENTSINCE "01-Oct-2018" SENTBEFORE "02-Oct-2018")'
+sentOn= "SENTON 31-Oct-2018"
 out = open("email_Report.csv","w")
-print("to;sender;subject;messageid;date",file=out)
+print("to;subject;messageid;from;details;date",file=out)
 
 
 def process_mailbox(M):
@@ -32,8 +38,9 @@ def process_mailbox(M):
     Do something with emails messages in the folder.  
     For the sake of this example, print some headers.
     """
-
-    rv, data = M.search(None, "ALL")
+    #rv, data = M.search(None, "ALL")
+    rv, data = M.search(None, sinceDate)
+    #rv, data = M.search(None, betweenDates)
     if rv != 'OK':
         print("No messages found!")
         return
@@ -52,19 +59,31 @@ def process_mailbox(M):
         hdr = email.header.make_header(email.header.decode_header(msg['Subject']))
         hdrfrom = email.header.make_header(email.header.decode_header(msg['From']))
         hdrto = email.header.make_header(email.header.decode_header(msg['To']))
+        #timereg = datetime.utcfromtimestamp(msg['Date']).strftime('%Y-%m-%d %H:%M:%S')
         # hdrbody = email.header.make_header(email.header.decode_header(msg))
         #b = email.message_from_string(data[0][1])
-        subject = re.sub('\n|\r', '', str(hdr))
-        hfrom = re.sub('\n|\r', '', str(hdrfrom))
-        hto = re.sub('\n|\r', '', str(hdrto))
-        
+
+        # print(b['body'])
+        # Now convert to local date-time
         print('\n')
         print('RegistroNuevo')
         print('--------------------------------')
+        date_tuple = email.utils.parsedate_tz(msg['Date'])
+        if date_tuple:
+            local_date = datetime.datetime.fromtimestamp(
+                email.utils.mktime_tz(date_tuple))
+            formated_date = local_date.strftime('%Y-%m-%d %H:%M:%S')
+            print ("Local Date:", \
+                local_date.strftime('%Y-%m-%d %H:%M:%S'))
+
+        subject = re.sub('\n|\r', '', str(hdr))
+        hfrom = re.sub('\n|\r', '', str(hdrfrom))
+        hto = re.sub('\n|\r', '', str(hdrto))
         #print('\n')
         #print('NuevaInformacion')
         print('Message %s: %s' % (num, subject))
         print('Raw Date:', msg['Date'])
+        #print(timereg)
         print('-------------HDRSubject---------------')
         #print(hdr)
         print(subject)
@@ -74,25 +93,16 @@ def process_mailbox(M):
         #print(hdrfrom)
         print('-------------HDRTo---------------')
         print(hto)
-        #print(hdrto)
-
-        
-        print("{0};{1};{2};{3};{4}".format(hto,hfrom,subject,msg['Message-ID'],msg['Date']),file=out)
-        print("{0};{1};{2};{3};{4}".format(hto,hfrom,subject,msg['Message-ID'],msg['Date']))
+        #print(hdrto)    
+        print("{0};{1};{2};{3};;{4}".format(hto,subject,msg['Message-ID'],hfrom,formated_date),file=out)
+        print("{0};{1};{2};{3};;{4}".format(hto,subject,msg['Message-ID'],hfrom,formated_date))
         print('--------------------------------')
         #print('++++++++++++++++++++++++++++++++')
         #print(msg,file=out)
         #print('++++++++++++++++++++++++++++++++')
         
-               # print('Raw Date:', msg['Date'])
-       # print(b['body'])
-        # Now convert to local date-time
-        date_tuple = email.utils.parsedate_tz(msg['Date'])
-        if date_tuple:
-            local_date = datetime.datetime.fromtimestamp(
-                email.utils.mktime_tz(date_tuple))
-            print ("Local Date:", \
-                local_date.strftime("%a, %d %b %Y %H:%M:%S"))
+        
+        
 
 
 M = imaplib.IMAP4_SSL('imap.gmail.com')
